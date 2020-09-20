@@ -1,0 +1,20 @@
+[package]
+name = "rmem"
+description = "A CLI utility to summarize memory usage"
+version = "0.1.0"
+authors = ["fazekmar <fazekmar@gmail.com>"]
+homepage = "https://github.com/fazekmar/rmem"
+repository = "https://github.com/fazekmar/rmem"
+readme = "README.md"
+categories = ["command-line-utilities"]
+license = "GPL-3.0"
+edition = "2018"
+
+[profile.release]
+lto = true
+
+[dependencies]
+procfs = "0.8.1"
+getargs = "0.4.1"
+bytesize = "1.0.1"
+rayon = "1.4.0"
