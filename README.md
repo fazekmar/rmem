@@ -1,11 +1,14 @@
 # rmem
+
 A CLI utility to summarize memory usage.
 Highly inspired by [ps_mem](https://github.com/pixelb/ps_mem).
 
 ## WIP
-All feature are working except precision measuring, the current implementation only uses VmRSS. On my system already much more accurate in comparison with ps_mem, but that doesn't necessarily mean it’s true for your system as well.
+
+On my system already much more accurate in comparison with ps_mem, but that doesn't necessarily mean it’s true for your system as well.
 
 ### Exmaple
+
 ```
 $ rmem -S
   Private +    Shared =     Total       Swap    Program
@@ -22,7 +25,14 @@ $ rmem -S
 ============================================
 ```
 
+## Install
+
+```
+$ cargo rmem
+```
+
 ## Build
+
 ```
 $ git clone https://github.com/fazekmar/rmem.git
 $ cd rmem

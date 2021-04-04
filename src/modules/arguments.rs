@@ -7,7 +7,7 @@ pub struct Args {
     pub rss: bool,
     pub full: bool,
     pub pid: bool,
-    pub pid_list: Vec<i32>,
+    pub pid_list: Vec<u32>,
     pub si: bool,
     pub swap: bool,
 }
@@ -40,8 +40,8 @@ fn parse_args<'a>(opts: &'a Options<'a, String>) -> Result<Args> {
                 res.pid_list = opts
                     .value_str()?
                     .split(',')
-                    .filter_map(|x| x.parse::<i32>().ok())
-                    .collect::<Vec<i32>>()
+                    .filter_map(|x| x.parse::<u32>().ok())
+                    .collect::<Vec<u32>>()
             }
             opt => return Err(Error::UnknownOpt(opt)),
         }

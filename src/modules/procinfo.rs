@@ -1,7 +1,9 @@
 use super::arguments::Args;
-use procfs::process::{all_processes, Process as fsProcess};
+use super::proc;
+
 use rayon::prelude::*;
-use std::iter::FromIterator;
+use std::process;
+use std::str::FromStr;
 
 #[derive(Default)]
 pub struct Process {
@@ -36,27 +38,18 @@ impl MemInfo {
     }
 }
 
-pub fn collect(options: Args) -> Vec<Process> {
+pub fn collect(options: &Args) -> Vec<Process> {
     if options.pid_list.is_empty() {
         all_processes()
-            .unwrap()
             .into_par_iter()
-            .map(|x| get_process(options.clone(), x))
+            .map(|x| get_process(&options, x))
             .collect::<Vec<Process>>()
     } else {
         options
             .pid_list
             .clone()
             .into_par_iter()
-            .map(|x| {
-                get_process(
-                    options.clone(),
-                    procfs::process::Process::new(x).unwrap_or_else(|e| {
-                        eprintln!("Error: {}, exiting", e);
-                        std::process::exit(1)
-                    }),
-                )
-            })
+            .map(|x| get_process(&options, proc::Process::new(x)))
             .collect::<Vec<Process>>()
     }
 }
@@ -79,23 +72,49 @@ pub fn sort_and_dedup(mut p_vec: Vec<Process>) -> Vec<Process> {
     p_vec
 }
 
-fn get_process(options: Args, prc: procfs::process::Process) -> Process {
-    let cmdline = match prc.cmdline() {
-        Ok(cmdline) => cmdline,
-        _ => Vec::new(),
-    };
-    if cmdline.is_empty() {
+pub fn all_processes() -> Vec<proc::Process> {
+    let pid_list: Vec<u32> = std::fs::read_dir("/proc/")
+        .unwrap()
+        .into_iter()
+        .filter_map(|entry| match entry {
+            Ok(e) => {
+                // Try to parse int, if failed the entry is probably not a process
+                if let Ok(pid) = u32::from_str(&e.file_name().to_string_lossy()) {
+                    // Do not include rmem to the list
+                    if pid == process::id() {
+                        return None;
+                    } else {
+                        return Some(pid);
+                    }
+                }
+                None
+            }
+            _ => None,
+        })
+        .collect();
+
+    pid_list
+        .into_par_iter()
+        .map(proc::Process::new)
+        .collect::<Vec<proc::Process>>()
+}
+
+fn get_process(options: &Args, prc: proc::Process) -> Process {
+    if prc.cmdline.is_empty() {
         return Process::default();
     }
 
     let command = if options.full {
-        String::from_iter(cmdline)
+        prc.cmdline.join(" ")
     } else {
-        get_command(prc.clone(), cmdline[0].clone())
+        prc.get_command()
     };
 
-    // TODO implement smamps
-    let meminfo = get_mem_status(prc.clone());
+    let meminfo = if options.rss {
+        get_status(&prc)
+    } else {
+        get_smaps(&prc)
+    };
 
     Process {
         name: if options.pid {
@@ -111,42 +130,23 @@ fn get_process(options: Args, prc: procfs::process::Process) -> Process {
     }
 }
 
-fn get_command(prc: fsProcess, cmdline: String) -> String {
-    match prc.exe() {
-        Ok(process) => {
-            let exe = process.display().to_string();
-            let is_deleted = exe.contains(" (deleted)");
-
-            let path = exe.split_whitespace().next().unwrap();
-
-            let cmd = path.split('/').last().unwrap().to_string();
-
-            if is_deleted {
-                match std::path::Path::new(&path).exists() {
-                    true => return format!("{} [updated]", cmd),
-                    false => return format!("{} [deleted]", cmd),
-                }
-            }
-            cmd
-        }
-        _ => cmdline
-            .split_whitespace()
-            .next()
-            .unwrap()
-            .split('/')
-            .last()
-            .unwrap()
-            .to_string(),
+fn get_status(prc: &proc::Process) -> MemInfo {
+    match prc.get_status() {
+        Ok(res) => MemInfo {
+            private: res.vmrss,
+            ..MemInfo::default()
+        },
+        _ => MemInfo::default(),
     }
 }
 
-fn get_mem_status(prc: fsProcess) -> MemInfo {
-    match prc.status() {
+fn get_smaps(prc: &proc::Process) -> MemInfo {
+    match prc.get_smaps() {
         Ok(res) => MemInfo {
-            private: res.vmrss.unwrap(),
-            shared: 0,
-            swap: 0,
+            private: res.private_clean + res.private_dirty,
+            shared: res.pss - (res.private_clean + res.private_dirty),
+            swap: res.swap,
         },
-        _ => MemInfo::default(),
+        _ => get_status(prc),
     }
 }

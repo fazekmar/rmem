@@ -11,8 +11,6 @@ pub fn usage() {
         "
 Usage: rmem [OPTIONS]...
 
-Notice: currenty only -r/-rss like mode working, shared and swap will always be 0
-
 Options:
     -t, --total            Show only the total usage
     -r, --rss              Show only the VmRSS usage (less precision but faster)
@@ -27,7 +25,7 @@ Options:
     std::process::exit(0);
 }
 
-pub fn header(options: Args) {
+pub fn header(options: &Args) {
     if options.rss {
         println!("{: >9}    Program\n", "Total");
     } else if options.swap {
@@ -43,7 +41,7 @@ pub fn header(options: Args) {
     }
 }
 
-pub fn process(process_data: Process, options: Args) {
+pub fn process(process_data: Process, options: &Args) {
     if process_data.name.is_empty() {
         return;
     }
@@ -73,7 +71,7 @@ pub fn process(process_data: Process, options: Args) {
     }
 }
 
-pub fn footer(options: Args, ram: u64, swap: u64) {
+pub fn footer(options: &Args, ram: u64, swap: u64) {
     if options.rss {
         println!("{0:->9}\n{1: >9}\n{0:=>9}", "", format(options.si, ram));
     } else if options.swap {
